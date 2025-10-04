@@ -32,10 +32,14 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
-
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include "kiss_icp/pipeline/KissICP.hpp"
 #include "lio_ekf.hpp"
 #include "lio_types.hpp"
+
+#include "livox_ros_driver/CustomMsg.h"
 
 namespace lio_ekf {
 
@@ -47,6 +51,8 @@ public:
   // buffer imu data
   void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in);
   void lidar_cbk(const sensor_msgs::PointCloud2ConstPtr &msg);
+  void livox_lidar_cbk(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+  void odom_cbk(const nav_msgs::Odometry::ConstPtr& msg);
 
   void writeResults(std::ofstream &odo);
 
@@ -72,11 +78,12 @@ private:
 
   std::mutex mtx_buffer_;
 
-  double last_timestamp_imu_, last_timestamp_lidar_;
+  double last_timestamp_imu_, last_timestamp_lidar_, last_timestamp_wheel_;
 
   std::deque<std::vector<Eigen::Vector3d>> lidar_buffer_;
   std::deque<lio_ekf::IMU> imu_buffer_;
   std::deque<double> lidar_time_buffer_;
+  std::deque<lio_ekf::Wheel> wheel_buffer_;
   std::deque<std::vector<double>> points_per_scan_time_buffer_;
 
   /// Tools for broadcasting TFs.
@@ -85,6 +92,8 @@ private:
   /// Data subscribers.
   ros::Subscriber pointcloud_sub_;
   ros::Subscriber imu_sub_;
+  ros::Subscriber livox_pointcloud_sub_;
+  ros::Subscriber odom_sub_;
 
   /// Data publishers.
   ros::Publisher odom_publisher_;

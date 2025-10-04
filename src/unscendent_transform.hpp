@@ -34,19 +34,47 @@ static constexpr double w = 1.0 / num_sigma_points;
 using MatrixType = Eigen::Matrix<double, dim, dim>;
 using SigmaPoints = std::vector<Sophus::SE3d>;
 
+// SigmaPoints toSigmaPoints(const Sophus::SE3d &mean,
+//                           const MatrixType &covariance) {
+//   SigmaPoints sigma_points(num_sigma_points);
+//   sigma_points[0] = mean;
+//   Eigen::LLT<MatrixType> chol(covariance);
+//   const MatrixType L = chol.matrixL();
+//   auto positive_transform = std::transform(
+//       L.colwise().begin(), L.colwise().end(), std::next(sigma_points.begin()),
+//       [&](const auto &column) { return Sophus::SE3d::exp(column) * mean; });
+//   std::transform(L.colwise().begin(), L.colwise().end(), positive_transform,
+//                  [&](const auto &column) {
+//                    return Sophus::SE3d::exp(-1.0 * column) * mean;
+//                  });
+//   return sigma_points;
+// }
+
 SigmaPoints toSigmaPoints(const Sophus::SE3d &mean,
                           const MatrixType &covariance) {
   SigmaPoints sigma_points(num_sigma_points);
-  sigma_points[0] = mean;
+  sigma_points[0] = mean;  // 第一个 sigma 点是均值
+
   Eigen::LLT<MatrixType> chol(covariance);
-  const MatrixType L = chol.matrixL();
-  auto positive_transform = std::transform(
-      L.colwise().begin(), L.colwise().end(), std::next(sigma_points.begin()),
-      [&](const auto &column) { return Sophus::SE3d::exp(column) * mean; });
-  std::transform(L.colwise().begin(), L.colwise().end(), positive_transform,
-                 [&](const auto &column) {
-                   return Sophus::SE3d::exp(-1.0 * column) * mean;
-                 });
+  const MatrixType L = chol.matrixL();  // Cholesky 分解的下三角矩阵 L
+
+  // 状态维度为 6（因为协方差是 6x6 矩阵），生成 2 * 6+1=13 个 sigma 点
+  const int state_dim = 6;
+  static_assert(num_sigma_points == 2 * state_dim + 1, 
+                "Sigma points数量与状态维度不匹配");
+
+  // 生成前 6 个 sigma 点（对应协方差的正向扰动）
+  for (int i = 0; i < state_dim; ++i) {
+    const Eigen::Vector6d& col = L.col(i);  // 获取 L 的第 i 列（6维向量）
+    sigma_points[i + 1] = Sophus::SE3d::exp(col) * mean;  // 指数映射后乘均值
+  }
+
+  // 生成后 6 个 sigma 点（对应协方差的负向扰动）
+  for (int i = 0; i < state_dim; ++i) {
+    const Eigen::Vector6d& col = L.col(i);  // 获取 L 的第 i 列（6维向量）
+    sigma_points[6 + i + 1] = Sophus::SE3d::exp(-col) * mean;  // 负指数映射后乘均值
+  }
+
   return sigma_points;
 }
 
