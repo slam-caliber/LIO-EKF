@@ -1,3 +1,16 @@
+# LIO-EKF 改进版：融合轮速信息的轨迹估计
+
+## 🔍 核心改进：轮速信息对轨迹精度的影响
+我们通过实验验证了**融合轮速信息**对定位与建图的关键作用。以下是未加入轮速 vs 加入轮速的轨迹对比：
+
+<div style="display: flex; justify-content: space-around; margin: 20px 0;">
+  <img src="docs/images/trajectory_without_wheel_speed.png" width="45%" alt="未加入轮速">
+  <img src="docs/images/trajectory_with_wheel_speed.png" width="45%" alt="加入轮速">
+</div>
+
+**结论**：轮速信息显著提升了轨迹的抗噪性和细节还原度（右侧区域平行线条更清晰，关键帧位姿修正更准确）。
+
+
 <p align="center">
 
   <h1 align="center">LIO-EKF: High Frequency LiDAR-Inertial Odometry using Extended Kalman Filters</h1>
