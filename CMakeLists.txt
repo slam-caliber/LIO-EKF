@@ -25,7 +25,7 @@ project(lio_ekf)
 SET(CMAKE_BUILD_TYPE "Release")
 SET(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 find_package(Eigen3 REQUIRED)
-
+find_package(PCL 1.0 REQUIRED)
 find_package(
   catkin REQUIRED
   COMPONENTS roscpp
@@ -34,21 +34,25 @@ find_package(
              sensor_msgs
              rosbag
              std_msgs
+             livox_ros_driver
              tf2
-             tf2_ros)
+             tf2_ros
+             pcl_conversions
+             pcl_ros)
 catkin_package()
 
-include(kiss-icp.cmake)
+#include(kiss-icp.cmake)
 # ROS1 node
 add_executable(lio_ekf_node ${CMAKE_CURRENT_SOURCE_DIR}/src/lio_ekf.cpp 
                             ${CMAKE_CURRENT_SOURCE_DIR}/src/lio_ekf_node.cpp
                             ${CMAKE_CURRENT_SOURCE_DIR}/src/OdometryServer.cpp 
                             ${CMAKE_CURRENT_SOURCE_DIR}/src/imuPropagation.cpp)
-target_include_directories(lio_ekf_node PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${catkin_INCLUDE_DIRS})
+target_include_directories(lio_ekf_node PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src     ${PCL_INCLUDE_DIRS}  ${catkin_INCLUDE_DIRS})
  
 target_link_libraries(lio_ekf_node 
                       kiss_icp::core 
                       Eigen3::Eigen 
+                      ${PCL_LIBRARIES}
                       ${catkin_LIBRARIES} )
 
 install(TARGETS lio_ekf_node RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

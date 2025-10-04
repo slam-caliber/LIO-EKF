@@ -64,6 +64,7 @@ OdometryServer::OdometryServer(const ros::NodeHandle &nh,
                  20);
 
   nh_.param<float>("lidar/voxel_size", lio_para_.voxel_size, 1);
+  lio_para_.voxel_size = 0.5;
 
   nh_.param<int>("lidar/max_iteration", lio_para_.max_iteration, 1);
   // common
@@ -172,11 +173,18 @@ OdometryServer::OdometryServer(const ros::NodeHandle &nh,
   odomRes_tum_.setf(std::ios::fixed, std::ios::floatfield);
 
   // Intializee subscribers
-  pointcloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>(
-      lid_topic, 1000, &OdometryServer::lidar_cbk, this);
-  imu_sub_ = nh_.subscribe<sensor_msgs::Imu>(imu_topic, 10000,
+  // pointcloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>(
+  //     lid_topic, 1000, &OdometryServer::lidar_cbk, this);
+  imu_sub_ = nh_.subscribe<sensor_msgs::Imu>("/livox/avia/imu", 10000,
                                              &OdometryServer::imu_cbk, this);
 
+  livox_pointcloud_sub_ = nh_.subscribe<livox_ros_driver::CustomMsg>(
+      "/livox/avia/lidar", 1000, &OdometryServer::livox_lidar_cbk, this);
+  
+  odom_sub_ = nh_.subscribe<nav_msgs::Odometry>(
+      "/odom", 1000, &OdometryServer::odom_cbk, this);
+  
+  
   // Intialize publishers
   odom_publisher_ = nh_.advertise<nav_msgs::Odometry>("odometry", queue_size_);
   frame_publisher_ =
@@ -201,11 +209,21 @@ OdometryServer::OdometryServer(const ros::NodeHandle &nh,
 
     ros::spinOnce();
     if (!data_synced_) {
-      if (!imu_buffer_.empty() && !lidar_buffer_.empty()) {
+      
+      if (!imu_buffer_.empty() && !lidar_buffer_.empty() && !wheel_buffer_.empty()) {
         if (!imu_buffer_.empty()) {
 
           lio_ekf_.addImuData(imu_buffer_, false);
         }
+
+        if (lio_ekf_.getWheeltimestamp() < lio_ekf_.getImutimestamp() &&
+            !wheel_buffer_.empty()) {
+
+          lio_ekf_.addWheelData(wheel_buffer_);
+          
+          
+        }
+
         if (!lidar_buffer_.empty()) {
 
           if (lio_ekf_.getLiDARtimestamp() < lio_ekf_.getImutimestamp()) {
@@ -222,10 +240,24 @@ OdometryServer::OdometryServer(const ros::NodeHandle &nh,
       }
     } else {
 
+    
       if (lidar_buffer_.empty())
-        if (imu_buffer_.empty()) {
-          continue;
+      {
+        if (imu_buffer_.empty()) 
+        {
+          if(wheel_buffer_.empty())
+            continue;
         }
+
+      }
+      //imu在不断积分弹出，lidar和wheel时刻都挑选与之最近的时间戳数据
+      if (lio_ekf_.getWheeltimestamp() < lio_ekf_.getImutimestamp() &&
+          !wheel_buffer_.empty()) {
+
+        lio_ekf_.addWheelData(wheel_buffer_);
+        lio_ekf_.newWheelProcess();
+
+      }
 
       if (lio_ekf_.getLiDARtimestamp() < lio_ekf_.getImutimestamp() &&
           !lidar_buffer_.empty()) {
@@ -236,8 +268,9 @@ OdometryServer::OdometryServer(const ros::NodeHandle &nh,
       }
 
       if (!imu_buffer_.empty() &&
-          !lidar_buffer_.empty()) // make sure lidar data is already there!
+          !lidar_buffer_.empty() && !wheel_buffer_.empty()) // make sure lidar data is already there!
       {
+        
         lio_ekf_.addImuData(imu_buffer_, false);
         lio_ekf_.newImuProcess();
         if (lio_ekf_.lidar_updated_) {
@@ -282,9 +315,13 @@ void OdometryServer::imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in) {
   sig_buffer_.notify_all();
 }
 
+
+
+
 void OdometryServer::lidar_cbk(const sensor_msgs::PointCloud2ConstPtr &msg) {
 
   for (auto &field : msg->fields) {
+    //std::cout<<"field.name:"<<field.name<<std::endl;
     if (field.name == "time" || field.name == "t") {
       break;
     }
@@ -303,7 +340,7 @@ void OdometryServer::lidar_cbk(const sensor_msgs::PointCloud2ConstPtr &msg) {
   const auto &timestamps = [&]() -> std::vector<double> {
     if (!lio_para_.deskew)
       return {};
-    return kiss_icp_ros::utils::GetTimestamps(msg);
+    //return kiss_icp_ros::utils::GetTimestamps(msg);
   }();
 
   const auto &points = kiss_icp_ros::utils::PointCloud2ToEigen(msg);
@@ -319,6 +356,69 @@ void OdometryServer::lidar_cbk(const sensor_msgs::PointCloud2ConstPtr &msg) {
 
   mtx_buffer_.unlock();
   sig_buffer_.notify_all();
+}
+
+
+void OdometryServer::odom_cbk(const nav_msgs::Odometry::ConstPtr& msg)
+{
+    // 创建Wheel数据结构
+    lio_ekf::Wheel wheel_meas;
+    wheel_meas.timestamp = msg->header.stamp.toSec();
+    
+    // 计算时间间隔（与前一个轮速数据的时间差）
+    wheel_meas.dt = wheel_meas.timestamp - last_timestamp_wheel_;
+    //std::cout<<"wheel dt is:"<<wheel_meas.dt<<std::endl;
+    
+    // 提取线速度和角速度
+    wheel_meas.linear_velocity = msg->twist.twist.linear.x;  // x方向线速度
+    wheel_meas.angular_velocity = msg->twist.twist.angular.z; // z轴角速度
+    
+    // 加锁保护缓冲区
+    mtx_buffer_.lock();
+    
+    // 将数据添加到缓冲区
+    wheel_buffer_.push_back(wheel_meas);
+    
+    // 更新时间戳
+    last_timestamp_wheel_ = wheel_meas.timestamp;
+    
+    // 解锁
+    mtx_buffer_.unlock();
+  
+    // 通知处理线程
+    sig_buffer_.notify_all();
+
+}
+
+void OdometryServer::livox_lidar_cbk(const livox_ros_driver::CustomMsg::ConstPtr &msg){
+  
+  int plsize = msg->point_num;
+  //std::cout<<"plsie: "<<plsize<<std::endl;
+
+  sensor_msgs::PointCloud2 ros_point_cloud;
+    // 创建 PCL 点云
+  pcl::PointCloud<pcl::PointXYZI> pcl_point_cloud;
+
+  for (size_t i = 0; i < msg->point_num; ++i)
+  {
+      pcl::PointXYZI point;
+      point.x = msg->points[i].x;
+      point.y = msg->points[i].y;
+      point.z = msg->points[i].z;
+      point.intensity = msg->points[i].reflectivity; // 假设 reflectivity 是强度信息
+      pcl_point_cloud.push_back(point);
+  }
+
+  // 将 PCL 点云转换为 ROS 消息
+  pcl::toROSMsg(pcl_point_cloud, ros_point_cloud);
+  ros_point_cloud.header = msg->header; // 使用原始消息的头信息
+  
+  sensor_msgs::PointCloud2ConstPtr ros_point_cloud_ptr = boost::make_shared<sensor_msgs::PointCloud2>(ros_point_cloud);
+
+  lidar_cbk(ros_point_cloud_ptr);
+
+
+  //std::cout<<"livox callbackxxxxxxx"<<std::endl;
 }
 
 void OdometryServer::writeResults(std::ofstream &odo) {

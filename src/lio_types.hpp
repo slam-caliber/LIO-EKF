@@ -87,6 +87,14 @@ struct IMU {
   ;
 };
 
+struct Wheel {
+  double timestamp;
+  double dt; // time interval between two wheel eppoch
+
+  double linear_velocity;
+  double angular_velocity;
+};
+
 struct ResultTuple {
   ResultTuple() {
     HTRH.setZero();
