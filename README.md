@@ -18,43 +18,16 @@
 
   <p align="center">
     <a href="https://arxiv.org/pdf/2311.09887"><img src="https://img.shields.io/badge/Paper-pdf-<COLOR>.svg?style=flat-square" /></a>
-    <a href="https://github.com/YibinWu/LIO-EKF#prerequisites"><img src="https://img.shields.io/ros/v/noetic/moveit_msgs.svg" /></a> 
-    <!--
-    <a href="https://github.com/PRBonn/PIN_SLAM/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" /></a> 
-    -->
+    <a href="https://github.com/YibinWu/LIO-EKF"><img src="https://img.shields.io/ros/v/noetic/moveit_msgs.svg" /></a> 
+    <a href="https://github.com/YibinWu/LIO-EKF/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" /></a> 
     
   </p>
 
 </p>
 
-**TL;DR: LIO-EKF is a lightweight LiDAR-inertial odometry system based on adaptive point-to-point registration and EKF.**
+**TL;DR: LIO-EKF is a lightweight yet efficient LiDAR-inertial odometry system based on adaptive point-to-point registration and EKF.**
 
-<p align='center'>
-<a href="https://www.youtube.com/watch?v=MoJTqEYl1ME" target="_blank"><img src="https://www.youtube.com/watch?v=MoJTqEYl1ME/0.jpg" width="500" /></a>
-</p>
-
-
-<!-- TABLE OF CONTENTS -->
-<details open="open" style='padding: 10px; border-radius:5px 30px 30px 5px; border-style: solid; border-width: 1px;'>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#prerequisites">Prerequisites</a>
-    </li>
-    <li>
-      <a href="#run-lio-ekf">RUN LIO-EKF</a>
-    </li>
-    <li>
-      <a href="#citation">Citation</a>
-    </li>
-    <li>
-      <a href="#contact">Contact</a>
-    </li>
-    <li>
-      <a href="#acknowledgement">Acknowledgement</a>
-    </li>
-  </ol>
-</details>
+[![](https://res.cloudinary.com/marcomontalbano/image/upload/v1715181604/video_to_markdown/images/youtube--MoJTqEYl1ME-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://youtu.be/MoJTqEYl1ME "")
 
 
 ## 1. Prerequisites
@@ -62,11 +35,8 @@
 * ROS 
 
   Follow [ROS Noetic installation instructions for Ubuntu 20.04](http://wiki.ros.org/noetic/Installation/Ubuntu).
-* Eigen
-  ```
-  sudo apt install libeigen3-dev
-  ```
 
+* [Eigen 3.4](https://eigen.tuxfamily.org/index.php?title=Main_Page)
 
 ## 2. RUN LIO-EKF
 
@@ -111,4 +81,4 @@ If you have any questions, please feel free to contact Mr. Yibin Wu {[yibin.wu@i
 
 
 ## 5. Acknowledgement
-Thanks a lot to [KISS-ICP](https://github.com/PRBonn/kiss-icp) and [KF-GINS](https://github.com/i2Nav-WHU/KF-GINS).
+Thanks a lot to [KISS-ICP](https://github.com/PRBonn/kiss-icp), which has inspired this work, and [KF-GINS](https://github.com/i2Nav-WHU/KF-GINS).
