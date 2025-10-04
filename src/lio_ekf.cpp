@@ -152,7 +152,7 @@ void LIOEKF::newWheelProcess(){
     is_first_wheel_ = false;
     return;
   }
-  //std::cout<<"newWheelProcess"<<std::endl;
+
   // 轮速运动模型积分
   double dt = wheelcur_.dt;
   //if (dt <= 0) continue;
@@ -366,7 +366,7 @@ void LIOEKF::wheelUpdate() {
   Eigen::Vector3d v_whell_in_global = R_bw * v_wheel;  // 公式：v_w^body = R_{b→w}^T * v_w
   const Eigen::Vector3d residual_v = (v_whell_in_global - v_global);
 
-  // -------------------------- 步骤3：构建观测雅可比 --------------------------
+
   Eigen::Matrix3d v_whell_in_global_skew = skew_symmetric(v_whell_in_global);
   Eigen::Matrix3_15d H_v = Eigen::Matrix3_15d::Zero();
   H_v.block<3, 3>(0, 3) = -Eigen::Matrix3d::Identity();
@@ -407,9 +407,8 @@ void LIOEKF::wheelUpdate() {
   // **************** 更新状态误差 δx_ ****************/
     delta_x_ += K_wheel_total * residual_wheel;  // K是6×15，残差是6×1，结果15×1
 
-  // // std::cout<<"K_wheel_total:"<<K_wheel_total<<std::endl;
 
-  // // // **************** 反馈更新状态（复用现有函数） ****************/
+  // // // **************** 反馈更新状态 ****************/
     stateFeedback();  // 需确保stateFeedback能处理15维δx_
 
   // // **************** 更新协方差矩阵 ****************/
@@ -417,68 +416,12 @@ void LIOEKF::wheelUpdate() {
       (I - K_wheel_total * H_wheel_total).transpose() +
       K_wheel_total * R_wheel_total * K_wheel_total.transpose();
 
-  // -------------------------- 步骤4：构建卡尔曼增益 --------------------------
-  //Eigen::Matrix<double, 15, 3> K_wheel = Cov_ * H.transpose() * (H * Cov_ * H.transpose() + R_wheel).inverse();
-
-  // 8. 更新状态误差 delta_x_
- // delta_x_ += K_wheel * residual;
-
-
-  // 9. 反馈更新状态（位置、速度、姿态、IMU零偏）
-  //stateFeedback(); // 复用现有的误差反馈函数
-
-  //const Eigen::Vector3d& v_global_wheel_update = bodystate_cur_.vel;
-
-  // 10. 更新协方差矩阵
-  //Eigen::Matrix<double, 15, 15> I = Eigen::Matrix<double, 15, 15>::Identity();
- // Cov_ = (I - K_wheel * H) * Cov_ * (I - K_wheel * H).transpose() + K_wheel * R_wheel * K_wheel.transpose();
-
 
   wheel_integration_state_ = BodyState();
-  //std::cout<<"重置wheel_integration_state_"<<std::endl;
+
 }
 
-void LIOEKF::checkLidarDegeneration(const Eigen::Matrix15d& HTRH)
-{
-       // 提取位置部分的信息矩阵 (3x3)
-  Eigen::Matrix3d position_info = HTRH.block<3, 3>(0, 0);
-  
-  // 特征值分解
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(position_info);
-  Eigen::Vector3d eigenvalues = eigensolver.eigenvalues();
-  Eigen::Matrix3d eigenvectors = eigensolver.eigenvectors();
-  
-  // 计算条件数（最大特征值/最小特征值）
-  double cond_number = eigenvalues.maxCoeff() / eigenvalues.minCoeff();
 
-
-  std::cout << "Relative eigenvalues (to max): [";
-  for (int i = 0; i < 3; ++i) {
-    std::cout << eigenvalues[i];
-    if (i < 5) std::cout << ", ";
-  }
-  std::cout << "]" << std::endl;
-  
-  // 检测退化条件
-  bool is_degenerate = false;
-  if (cond_number > 1000) { // 条件数阈值
-    is_degenerate = true;
-    std::cout << "WARNING: Degenerate case detected! Condition number: " 
-              << cond_number << std::endl;
-  }
-  
-  // 检查特征值分布
-  double eigenvalue_sum = eigenvalues.sum();
-  for (int i = 0; i < 3; ++i) {
-    double ratio = eigenvalues(i) / eigenvalue_sum;
-    if (ratio < 0.01) { // 某个方向信息量很小
-      std::cout << "Weak direction: " << eigenvectors.col(i).transpose() 
-                << " with ratio: " << ratio << std::endl;
-    }
-  }
-
-  
-}
 
 void LIOEKF::setupCorridorSpecificWeights(Eigen::Matrix3d& R_inv, 
                                      const Eigen::Vector3d& direction, 
@@ -598,10 +541,6 @@ void LIOEKF::lidarUpdate() {
           return a + b;
         });
 
-    // if(j == 0)
-    // {
-    //   //checkLidarDegeneration(HTRH);
-    // }
 
     Eigen::Matrix15d S_inv = (HTRH + Cov_.inverse()).inverse();
     delta_x_ = S_inv * HTRz;
